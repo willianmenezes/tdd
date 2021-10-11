@@ -9,21 +9,63 @@ namespace NerdStore.Vendas.Domain
 {
     public class Pedido
     {
-        public Pedido()
+        protected Pedido()
         {
             _pedidoItems = new List<PedidoItem>();
         }
 
+        public Guid ClienteId { get; set; }
         public decimal ValorTotal { get; private set; }
-        private readonly List<PedidoItem> _pedidoItems;
+        public PedidoStatus PedidoStatus { get; set; }
         public IReadOnlyCollection<PedidoItem> PedidoItems => _pedidoItems;
+
+        private readonly List<PedidoItem> _pedidoItems;
 
         public void AdicionarItem(PedidoItem pedidoItem)
         {
-            _pedidoItems.Add(pedidoItem);
-            ValorTotal = PedidoItems.Sum(x => x.ValorUnitario * x.Quantidade);
+            if (_pedidoItems.Any(p => p.ProdutoId == pedidoItem.ProdutoId))
+            {
+                var itemExistente = _pedidoItems.First(p => pedidoItem.ProdutoId == p.ProdutoId);
+                itemExistente.AdicionarUnidades(pedidoItem.Quantidade);
+            }
+            else
+            {
+                _pedidoItems.Add(pedidoItem);
+            }
+
+            CalcularValorPedido();
         }
 
+        public void CalcularValorPedido()
+        {
+            ValorTotal = PedidoItems.Sum(p => p.CalcularValor());
+        }
+
+        public void TornarRascunho()
+        {
+            PedidoStatus = PedidoStatus.Rascunho;
+        }
+
+        public static Pedido NovoPedidoRascunho(Guid clienteId)
+        {
+            var pedido = new Pedido
+            {
+                ClienteId = clienteId
+            };
+
+            pedido.TornarRascunho();
+
+            return pedido;
+        }
+    }
+
+    public enum PedidoStatus
+    {
+        Rascunho,
+        Iniciado,
+        Pago = 4,
+        Entregue,
+        Cancelado
     }
 
     public class PedidoItem
@@ -40,5 +82,15 @@ namespace NerdStore.Vendas.Domain
         public string NomeProduto { get; private set; }
         public int Quantidade { get; private set; }
         public decimal ValorUnitario { get; private set; }
+
+        public void AdicionarUnidades(int quantidade)
+        {
+            Quantidade += quantidade;
+        }
+
+        public decimal CalcularValor()
+        {
+            return Quantidade * ValorUnitario;
+        }
     }
 }
