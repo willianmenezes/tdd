@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NerdStore.Core.DomainObjects;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -9,6 +10,9 @@ namespace NerdStore.Vendas.Domain
 {
     public class Pedido
     {
+        public static int MAX_UNIDADES_ITEM => 15;
+        public static int MIN_UNIDADES_ITEM => 1;
+
         protected Pedido()
         {
             _pedidoItems = new List<PedidoItem>();
@@ -36,7 +40,7 @@ namespace NerdStore.Vendas.Domain
             CalcularValorPedido();
         }
 
-        public void CalcularValorPedido()
+        private void CalcularValorPedido()
         {
             ValorTotal = PedidoItems.Sum(p => p.CalcularValor());
         }
@@ -72,6 +76,12 @@ namespace NerdStore.Vendas.Domain
     {
         public PedidoItem(Guid produtoId, string nomeProduto, int quantidade, decimal valorUnitario)
         {
+            if (quantidade > Pedido.MAX_UNIDADES_ITEM)
+                throw new DomainExeption($"Maximo de {Pedido.MAX_UNIDADES_ITEM} unidades por produto");
+
+            if (quantidade < Pedido.MIN_UNIDADES_ITEM)
+                throw new DomainExeption($"Minimo de {Pedido.MAX_UNIDADES_ITEM} unidades por produto");
+
             ProdutoId = produtoId;
             NomeProduto = nomeProduto;
             Quantidade = quantidade;
