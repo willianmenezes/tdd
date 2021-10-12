@@ -106,5 +106,39 @@ namespace NerdStore.Vendas.Domain.Tests
             // assert
             Assert.Equal(500, pedido.ValorTotal);
         }
+
+        [Fact(DisplayName = "Remover item inexistente")]
+        [Trait("Categoria", "Vendas - Pedido")]
+        public void RemoverItemPedido_ItemInexistente_DeveRetornarExeption()
+        {
+            // Arranje
+            var pedido = Pedido.NovoPedidoRascunho(Guid.NewGuid());
+            var pedidoItem = new PedidoItem(Guid.NewGuid(), "Produto teste", 2, 100);
+            pedido.AdicionarItem(pedidoItem);
+            var novoItem = new PedidoItem(Guid.NewGuid(), "Produto teste", 5, 100);
+
+            // act && assert
+            Assert.Throws<DomainExeption>(() => pedido.RemoverItem(novoItem));
+        }
+
+        [Fact(DisplayName = "Recalcular valor total do pedido ao remover um item")]
+        [Trait("Categoria", "Vendas - Pedido")]
+        public void RemoverItemPedido_ItemExistente_DeveRecalcularValorTotalPedido()
+        {
+            // Arranje
+            var pedido = Pedido.NovoPedidoRascunho(Guid.NewGuid());
+            var pedidoItem = new PedidoItem(Guid.NewGuid(), "Produto teste", 2, 100);
+            var novoItem = new PedidoItem(Guid.NewGuid(), "Produto teste", 5, 100);
+            pedido.AdicionarItem(pedidoItem);
+            pedido.AdicionarItem(novoItem);
+
+            var totalPedido = pedidoItem.ValorUnitario * pedidoItem.Quantidade;
+
+            // act
+            pedido.RemoverItem(novoItem);
+
+            // assert
+            Assert.Equal(totalPedido, pedido.ValorTotal);
+        }
     }
 }
