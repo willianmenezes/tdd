@@ -1,4 +1,5 @@
-﻿using NerdStore.Core.DomainObjects;
+﻿using FluentValidation.Results;
+using NerdStore.Core.DomainObjects;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,9 +19,12 @@ namespace NerdStore.Vendas.Domain
             _pedidoItems = new List<PedidoItem>();
         }
 
-        public Guid ClienteId { get; set; }
+        public Guid ClienteId { get; private set; }
         public decimal ValorTotal { get; private set; }
-        public PedidoStatus PedidoStatus { get; set; }
+        public PedidoStatus PedidoStatus { get; private set; }
+        public bool VoucherUtilizado { get; private set; }
+        public Voucher Voucher { get; private set; }
+        public decimal Desconto { get; private set; }
         public IReadOnlyCollection<PedidoItem> PedidoItems => _pedidoItems;
 
         private readonly List<PedidoItem> _pedidoItems;
@@ -54,6 +58,7 @@ namespace NerdStore.Vendas.Domain
         private void CalcularValorPedido()
         {
             ValorTotal = PedidoItems.Sum(p => p.CalcularValor());
+            CalcularValorTotalDesconto();
         }
 
         public void TornarRascunho()
@@ -99,46 +104,43 @@ namespace NerdStore.Vendas.Domain
 
             CalcularValorPedido();
         }
-    }
 
-    public enum PedidoStatus
-    {
-        Rascunho,
-        Iniciado,
-        Pago = 4,
-        Entregue,
-        Cancelado
-    }
-
-    public class PedidoItem
-    {
-        public PedidoItem(Guid produtoId, string nomeProduto, int quantidade, decimal valorUnitario)
+        public ValidationResult AplicarVoucher(Voucher voucher)
         {
-            if (quantidade > Pedido.MAX_UNIDADES_ITEM)
-                throw new DomainExeption($"Maximo de {Pedido.MAX_UNIDADES_ITEM} unidades por produto");
+            var result = voucher.ValidarSeAplicavel();
 
-            if (quantidade < Pedido.MIN_UNIDADES_ITEM)
-                throw new DomainExeption($"Minimo de {Pedido.MAX_UNIDADES_ITEM} unidades por produto");
+            if (result.IsValid != true) return result;
 
-            ProdutoId = produtoId;
-            NomeProduto = nomeProduto;
-            Quantidade = quantidade;
-            ValorUnitario = valorUnitario;
+            Voucher = voucher;
+            VoucherUtilizado = true;
+
+            CalcularValorTotalDesconto();
+
+            return result;
         }
 
-        public Guid ProdutoId { get; private set; }
-        public string NomeProduto { get; private set; }
-        public int Quantidade { get; private set; }
-        public decimal ValorUnitario { get; private set; }
-
-        public void AdicionarUnidades(int quantidade)
+        public void CalcularValorTotalDesconto()
         {
-            Quantidade += quantidade;
-        }
+            if (!VoucherUtilizado) return;
 
-        public decimal CalcularValor()
-        {
-            return Quantidade * ValorUnitario;
+            decimal desconto = 0;
+
+            if (Voucher.TipoDescontoVoucher == TipoDescontoVoucher.Valor)
+            {
+                if (Voucher.ValorDesconto.HasValue)
+                    desconto = Voucher.ValorDesconto.Value;
+            }
+            else
+            {
+                if (Voucher.PercentualDesconto.HasValue)
+                    desconto = ValorTotal * Voucher.PercentualDesconto.Value / 100;
+            }
+
+            ValorTotal -= desconto;
+
+            if (ValorTotal < 0) ValorTotal = 0;
+
+            Desconto = desconto;
         }
     }
 }
